@@ -12,16 +12,18 @@
     }
     body {
       margin: 0;
-      min-height: 100vh;
+      height: 100vh;
       display: grid;
       grid-template-columns: minmax(0, 1fr) 380px;
+      overflow: hidden;
     }
     .stage {
       background: #101827;
       color: #ffffff;
       display: grid;
       grid-template-rows: auto 1fr auto;
-      min-height: 100vh;
+      height: 100vh;
+      min-height: 0;
     }
     header {
       padding: 20px 24px;
@@ -36,10 +38,14 @@
       font-size: 20px;
     }
     .screen {
-      display: grid;
-      place-items: center;
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-start;
       font-size: 18px;
       color: #cfd8e6;
+      min-height: 0;
+      overflow: auto;
+      padding: 22px 24px;
     }
     .stage footer {
       padding: 16px 24px;
@@ -49,19 +55,50 @@
       background: #ffffff;
       border-left: 1px solid #d5ddea;
       display: grid;
-      grid-template-rows: auto 1fr auto;
-      min-height: 100vh;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      height: 100vh;
+      min-height: 0;
     }
     .chat-head {
       padding: 18px 18px 14px;
       border-bottom: 1px solid #e1e7f0;
       font-weight: 700;
     }
+    .stage-events {
+      width: min(720px, 100%);
+    }
+    .context-title {
+      color: #d7e1f1;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    #liveEvents {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 6px;
+    }
+    .event {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      color: #d8e2f0;
+      font-size: 13px;
+      line-height: 1.45;
+      padding: 9px 10px;
+      word-break: break-word;
+    }
+    .event.empty {
+      color: #97a8c0;
+    }
     #messages {
       list-style: none;
       margin: 0;
       padding: 12px;
       overflow: auto;
+      min-height: 0;
     }
     .message {
       padding: 10px 8px;
@@ -111,10 +148,10 @@
         grid-template-columns: 1fr;
       }
       .stage {
-        min-height: 42vh;
+        height: 42vh;
       }
       aside {
-        min-height: 58vh;
+        height: 58vh;
       }
     }
   </style>
@@ -125,7 +162,14 @@
       <h1>直播间 {{ match_id }}</h1>
       <span id="count">0 条</span>
     </header>
-    <div class="screen">LIVE</div>
+    <div class="screen">
+      <div class="stage-events">
+        <div class="context-title">纳米实时数据</div>
+        <ul id="liveEvents">
+          <li class="event empty">等待纳米数据</li>
+        </ul>
+      </div>
+    </div>
     <footer id="state">连接中</footer>
   </section>
   <aside>
@@ -143,13 +187,123 @@
     const count = document.querySelector("#count");
     const state = document.querySelector("#state");
     const stopButton = document.querySelector("#stopButton");
+    const liveEvents = document.querySelector("#liveEvents");
+
+    const STATUS_LABELS = {
+      0: "异常",
+      1: "未开赛",
+      2: "上半场",
+      3: "中场",
+      4: "下半场",
+      5: "加时赛",
+      6: "加时赛",
+      7: "点球决战",
+      8: "完场",
+      9: "推迟",
+      10: "中断",
+      11: "腰斩",
+      12: "取消",
+      13: "待定",
+    };
+    const TYPE_LABELS = {
+      0: "普通文字",
+      1: "进球",
+      2: "角球",
+      3: "黄牌",
+      4: "红牌",
+      5: "越位",
+      6: "任意球",
+      7: "球门球",
+      8: "点球",
+      9: "换人",
+      10: "比赛开始",
+      11: "中场",
+      12: "结束",
+      13: "半场比分",
+      15: "两黄变红",
+      16: "点球未进",
+      17: "乌龙球",
+      18: "助攻",
+      19: "伤停补时",
+      21: "射正",
+      22: "射偏",
+      23: "进攻",
+      24: "危险进攻",
+      25: "控球率",
+      26: "加时赛结束",
+      27: "点球大战结束",
+      28: "VAR",
+      29: "点球大战点球",
+      30: "点球大战点球未进",
+      37: "射门被阻挡",
+      38: "补水",
+    };
+    const SIDE_LABELS = { 0: "中立", 1: "主队", 2: "客队" };
+
+    function formatMessageTime(message) {
+      if (!message.ts) return message.match_time || "";
+      const date = new Date(Number(message.ts) * 1000);
+      return date.toLocaleTimeString("zh-CN", { hour12: false });
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function typeName(type) {
+      return TYPE_LABELS[Number(type)] || `类型${type}`;
+    }
+
+    function incidentText(item) {
+      const side = SIDE_LABELS[Number(item.position)] || "";
+      if (Number(item.type) === 9) {
+        return `重要事件 ${item.time}分钟 ${side}换人 ${item.in_player_name} 上，${item.out_player_name} 下`;
+      }
+
+      const scoreText = item.home_score !== undefined ? ` 比分${item.home_score}-${item.away_score}` : "";
+      const player = item.player_name ? ` ${item.player_name}` : "";
+      return `重要事件 ${item.time}分钟 ${side}${typeName(item.type)}${player}${scoreText}`;
+    }
+
+    function renderLiveContext(context) {
+      if (!context) {
+        liveEvents.innerHTML = `<li class="event empty">等待纳米数据</li>`;
+        return;
+      }
+
+      const items = [];
+      const score = context.score;
+      const home = score[2];
+      const away = score[3];
+      const status = STATUS_LABELS[Number(score[1])] || `状态${score[1]}`;
+      items.push(`比分 ${status} 主队${home[0]}-${away[0]}客队`);
+
+      for (const item of context.stats.slice(0, 6)) {
+        items.push(`技术统计 ${typeName(item.type)} 主队${item.home} 客队${item.away}`);
+      }
+      for (const item of context.incidents.slice(-5).reverse()) {
+        items.push(incidentText(item));
+      }
+      for (const item of context.tlive.slice(-5).reverse()) {
+        items.push(`文字直播 ${item.time || ""} ${typeName(item.type)}：${item.data}`);
+      }
+
+      liveEvents.innerHTML = items.slice(0, 14).map((item) => (
+        `<li class="event">${escapeHtml(item)}</li>`
+      )).join("");
+    }
 
     function render(messages) {
       list.innerHTML = messages.map((message) => `
         <li class="message">
           <div class="meta">
             <span>${message.bot_name || "机器人"}</span>
-            <span>${message.match_time || ""}</span>
+            <span>${formatMessageTime(message)}</span>
           </div>
           <div class="content">${message.content || ""}</div>
         </li>
@@ -159,11 +313,18 @@
     }
 
     async function loadMessages() {
-      const params = new URLSearchParams({ matchId, limit: "80" });
+      const params = new URLSearchParams({ matchId, limit: "50" });
       const response = await fetch(`/api/messages?${params.toString()}`);
       const data = await response.json();
       render(data.messages || []);
       state.textContent = response.ok ? "已连接" : "连接失败";
+    }
+
+    async function loadLiveContext() {
+      const params = new URLSearchParams({ matchId });
+      const response = await fetch(`/api/context?${params.toString()}`);
+      const data = await response.json();
+      renderLiveContext(data.context);
     }
 
     stopButton.addEventListener("click", async () => {
@@ -173,7 +334,9 @@
     });
 
     loadMessages();
+    loadLiveContext();
     setInterval(loadMessages, 1500);
+    setInterval(loadLiveContext, 1500);
   </script>
 </body>
 </html>

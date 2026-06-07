@@ -19,6 +19,20 @@ def test_get_personas_generates_unique_bot_ids_when_pool_repeats() -> None:
     assert len(bot_ids) == len(set(bot_ids))
 
 
+def test_get_personas_has_varied_first_eight_personas() -> None:
+    personas = get_personas(8)
+    base_names = {persona["name"].rstrip("0123456789") for persona in personas}
+
+    assert len(base_names) == 8
+
+
+def test_get_personas_first_eight_include_live_room_noise_roles() -> None:
+    personas = get_personas(8)
+    names = {persona["name"].rstrip("0123456789") for persona in personas}
+
+    assert {"凑热闹", "阴阳人", "跑题观众", "赌气球迷"}.issubset(names)
+
+
 def test_get_personas_returns_required_fields() -> None:
     persona = get_personas(1)[0]
 

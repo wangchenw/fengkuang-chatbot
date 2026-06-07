@@ -24,3 +24,7 @@ def stop_key(match_id: str) -> str:
 
 def stats_key(match_id: str) -> str:
     return f"live:{match_id}:stats"
+
+
+def active_matches_key() -> str:
+    return "live:active_matches"

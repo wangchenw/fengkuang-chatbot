@@ -7,7 +7,9 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.templating import Jinja2Templates
 
 from bot_service.integrations.redis_client import redis_client
+from bot_service.services.match_context_store import get_active_match_ids, read_match_context
 from mock_live_room.consumers.redis_stream_consumer import read_recent_messages
+from mock_live_room.services.monitoring import build_monitor_snapshot
 
 
 router = APIRouter()
@@ -37,7 +39,7 @@ async def index(request: Request):
         "index.html",
         {
             "default_match_id": "demo_001",
-            "default_limit": 3,
+            "default_limit": 8,
         },
     )
 
@@ -51,6 +53,11 @@ async def room(request: Request, matchId: str = Query(...)):
             "match_id": matchId,
         },
     )
+
+
+@router.get("/monitor")
+async def monitor(request: Request):
+    return templates.TemplateResponse(request, "monitor.html")
 
 
 @router.get("/api/start")
@@ -72,4 +79,37 @@ async def messages(
     return {
         "match_id": matchId,
         "messages": await read_recent_messages(redis, matchId, limit=limit),
+    }
+
+
+@router.get("/api/context")
+async def context(
+    matchId: str,
+    redis=Depends(get_redis_client),
+) -> dict[str, object]:
+    return {
+        "match_id": matchId,
+        "context": await read_match_context(redis, matchId),
+    }
+
+
+@router.get("/api/monitor/tasks")
+async def monitor_tasks(redis=Depends(get_redis_client)) -> dict[str, object]:
+    return await build_monitor_snapshot(redis)
+
+
+@router.post("/api/monitor/stop")
+async def monitor_stop_match(matchId: str) -> dict[str, object]:
+    return await call_bot_service("/stopLive", {"matchId": matchId})
+
+
+@router.post("/api/monitor/stopAll")
+async def monitor_stop_all(redis=Depends(get_redis_client)) -> dict[str, object]:
+    match_ids = sorted(await get_active_match_ids(redis))
+    results = []
+    for match_id in match_ids:
+        results.append(await call_bot_service("/stopLive", {"matchId": match_id}))
+    return {
+        "stopped_count": len(results),
+        "results": results,
     }

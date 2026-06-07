@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>监控管理</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f4f6fa;
+      color: #172033;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #f4f6fa;
+    }
+    header {
+      height: 64px;
+      padding: 0 24px;
+      border-bottom: 1px solid #d9e0ec;
+      background: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.25;
+    }
+    main {
+      padding: 20px 24px;
+      display: grid;
+      gap: 16px;
+    }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(140px, 1fr));
+      gap: 12px;
+    }
+    .metric {
+      background: #ffffff;
+      border: 1px solid #d9e0ec;
+      border-radius: 6px;
+      padding: 14px;
+      min-height: 76px;
+    }
+    .metric-label {
+      color: #65738a;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+    .metric-value {
+      font-size: 24px;
+      font-weight: 700;
+    }
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid #d9e0ec;
+      border-radius: 6px;
+      background: #ffffff;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1120px;
+    }
+    th, td {
+      padding: 11px 12px;
+      border-bottom: 1px solid #e6ebf2;
+      text-align: left;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    th {
+      background: #f8fafc;
+      color: #3f4f6b;
+      font-weight: 700;
+    }
+    tr.warn-red {
+      background: #fff1f0;
+    }
+    tr.warn-yellow {
+      background: #fff8db;
+    }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 0 8px;
+      border-radius: 999px;
+      background: #edf1f6;
+      color: #3f4f6b;
+      margin-right: 4px;
+      font-size: 12px;
+    }
+    .tag.red {
+      background: #ffe1df;
+      color: #8f1f18;
+    }
+    .tag.yellow {
+      background: #fff0b8;
+      color: #6f5200;
+    }
+    .actions, .footer-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    button, a {
+      min-height: 36px;
+      border: 0;
+      border-radius: 6px;
+      padding: 0 12px;
+      background: #185abc;
+      color: #ffffff;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    button.secondary, a.secondary {
+      background: #2f3b52;
+    }
+    button.stop {
+      background: #b3261e;
+    }
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+    label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #3f4f6b;
+      font-size: 13px;
+    }
+    input[type="number"] {
+      width: 72px;
+      height: 34px;
+      border: 1px solid #c7d1e0;
+      border-radius: 6px;
+      padding: 0 8px;
+    }
+    .empty {
+      color: #65738a;
+      padding: 28px 12px;
+      text-align: center;
+    }
+    @media (max-width: 900px) {
+      header {
+        height: auto;
+        padding: 14px 16px;
+        align-items: flex-start;
+        flex-direction: column;
+      }
+      main {
+        padding: 16px;
+      }
+      .summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>监控管理</h1>
+    <div class="actions">
+      <button id="refreshButton" type="button">刷新</button>
+      <button id="stopAllButton" class="stop" type="button">停止全部</button>
+      <a class="secondary" href="/">返回</a>
+    </div>
+  </header>
+  <main>
+    <section class="summary">
+      <div class="metric">
+        <div class="metric-label">活跃比赛数</div>
+        <div id="activeMatchCount" class="metric-value">0</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">当前任务累计弹幕</div>
+        <div id="totalSent" class="metric-value">0</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">累计 Token</div>
+        <div id="tokenTotal" class="metric-value">0</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">推理错误率</div>
+        <div id="errorRate" class="metric-value">0%</div>
+      </div>
+    </section>
+
+    <section class="table-wrap">
+      <table id="monitorTable">
+        <thead>
+          <tr>
+            <th>比赛 ID</th>
+            <th>状态</th>
+            <th>运行时长</th>
+            <th>Bot</th>
+            <th>弹幕</th>
+            <th>去重跳过</th>
+            <th>LLM 错误</th>
+            <th>Token</th>
+            <th>最后活跃</th>
+            <th>Stream</th>
+            <th>异常</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="monitorRows">
+          <tr><td class="empty" colspan="12">加载中</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="footer-controls">
+      <label><input id="autoRefresh" type="checkbox" checked> 自动刷新</label>
+      <label>间隔 <input id="refreshInterval" type="number" min="3" value="10"> 秒</label>
+      <span id="lastUpdated">未刷新</span>
+    </section>
+  </main>
+
+  <script>
+    const activeMatchCount = document.querySelector("#activeMatchCount");
+    const totalSent = document.querySelector("#totalSent");
+    const tokenTotal = document.querySelector("#tokenTotal");
+    const errorRate = document.querySelector("#errorRate");
+    const monitorRows = document.querySelector("#monitorRows");
+    const refreshButton = document.querySelector("#refreshButton");
+    const stopAllButton = document.querySelector("#stopAllButton");
+    const autoRefresh = document.querySelector("#autoRefresh");
+    const refreshInterval = document.querySelector("#refreshInterval");
+    const lastUpdated = document.querySelector("#lastUpdated");
+
+    const WARNING_LABELS = {
+      zombie_task: ["僵尸任务", "red"],
+      long_running: ["超时运行", "yellow"],
+      high_error_rate: ["高错误率", "yellow"],
+      stream_backlog: ["Stream 过长", "yellow"],
+    };
+
+    let timer = null;
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function formatSeconds(totalSeconds) {
+      const seconds = Number(totalSeconds || 0);
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      if (hours > 0) return `${hours}时${minutes}分`;
+      return `${minutes}分`;
+    }
+
+    function formatAge(seconds) {
+      if (seconds === null || seconds === undefined) return "-";
+      if (seconds < 60) return `${seconds}秒前`;
+      return `${Math.floor(seconds / 60)}分钟前`;
+    }
+
+    function formatPercent(value) {
+      return `${Math.round(Number(value || 0) * 100)}%`;
+    }
+
+    function warningTags(flags) {
+      if (!flags.length) return `<span class="tag">正常</span>`;
+      return flags.map((flag) => {
+        const [label, level] = WARNING_LABELS[flag] || [flag, ""];
+        return `<span class="tag ${level}">${escapeHtml(label)}</span>`;
+      }).join("");
+    }
+
+    function rowClass(flags) {
+      if (flags.includes("zombie_task")) return "warn-red";
+      if (flags.length) return "warn-yellow";
+      return "";
+    }
+
+    function render(data) {
+      activeMatchCount.textContent = data.summary.active_match_count;
+      totalSent.textContent = data.summary.total_sent;
+      tokenTotal.textContent = data.summary.token_total;
+      errorRate.textContent = formatPercent(data.summary.llm_error_rate);
+      lastUpdated.textContent = `最后更新时间 ${new Date(data.updated_at * 1000).toLocaleTimeString("zh-CN", { hour12: false })}`;
+
+      if (!data.matches.length) {
+        monitorRows.innerHTML = `<tr><td class="empty" colspan="12">暂无运行任务</td></tr>`;
+        return;
+      }
+
+      monitorRows.innerHTML = data.matches.map((item) => `
+        <tr class="${rowClass(item.warning_flags)}">
+          <td>${escapeHtml(item.match_id)}</td>
+          <td>${escapeHtml(item.status)}</td>
+          <td>${formatSeconds(item.runtime_seconds)}</td>
+          <td>${item.bot_count}</td>
+          <td>${item.sent_total}</td>
+          <td>${item.dedup_skip_total}</td>
+          <td>${item.llm_error_total} / ${item.llm_call_total}</td>
+          <td>${item.token_total}</td>
+          <td>${formatAge(item.last_active_age_seconds)}</td>
+          <td>${item.stream_length}</td>
+          <td>${warningTags(item.warning_flags)}</td>
+          <td><button class="stop" type="button" data-match-id="${escapeHtml(item.match_id)}">停止</button></td>
+        </tr>
+      `).join("");
+    }
+
+    async function loadSnapshot() {
+      const response = await fetch("/api/monitor/tasks");
+      const data = await response.json();
+      render(data);
+    }
+
+    async function stopMatch(matchId) {
+      const params = new URLSearchParams({ matchId });
+      await fetch(`/api/monitor/stop?${params.toString()}`, { method: "POST" });
+      await loadSnapshot();
+    }
+
+    async function stopAll() {
+      stopAllButton.disabled = true;
+      try {
+        await fetch("/api/monitor/stopAll", { method: "POST" });
+        await loadSnapshot();
+      } finally {
+        stopAllButton.disabled = false;
+      }
+    }
+
+    function resetTimer() {
+      if (timer) clearInterval(timer);
+      if (!autoRefresh.checked) return;
+      const seconds = Math.max(Number(refreshInterval.value || 10), 3);
+      timer = setInterval(loadSnapshot, seconds * 1000);
+    }
+
+    monitorRows.addEventListener("click", async (event) => {
+      const button = event.target.closest("button[data-match-id]");
+      if (!button) return;
+      await stopMatch(button.dataset.matchId);
+    });
+    refreshButton.addEventListener("click", loadSnapshot);
+    stopAllButton.addEventListener("click", stopAll);
+    autoRefresh.addEventListener("change", resetTimer);
+    refreshInterval.addEventListener("change", resetTimer);
+
+    loadSnapshot();
+    resetTimer();
+  </script>
+</body>
+</html>

@@ -12,7 +12,12 @@ _fake_loop_tasks: dict[str, asyncio.Task] = {}
 
 
 def get_live_task_manager() -> LiveTaskManager:
-    return LiveTaskManager(redis_client, llm_agent=mimo_agent)
+    return LiveTaskManager(
+        redis_client,
+        llm_agent=mimo_agent,
+        match_ttl_seconds=settings.match_redis_ttl_seconds,
+        max_runtime_seconds=settings.max_match_runtime_seconds,
+    )
 
 
 def get_message_interval_seconds() -> float:

@@ -87,6 +87,7 @@
     <div class="actions">
       <button id="startButton" type="button">启动</button>
       <a id="roomLink" class="button" href="/room?matchId={{ default_match_id }}">进入直播间</a>
+      <a class="button secondary" href="/monitor">监控管理</a>
     </div>
     <div id="status"></div>
   </main>
@@ -113,7 +114,13 @@
       });
       const response = await fetch(`/api/start?${params.toString()}`);
       const data = await response.json();
-      statusEl.textContent = response.ok ? `已启动 ${data.match_id}` : "启动失败";
+      if (!response.ok) {
+        statusEl.textContent = "启动失败";
+      } else if (data.already_running) {
+        statusEl.textContent = `已在运行 ${data.match_id}`;
+      } else {
+        statusEl.textContent = `已启动 ${data.match_id}`;
+      }
     });
   </script>
 </body>
