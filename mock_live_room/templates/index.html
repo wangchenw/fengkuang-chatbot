@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>模拟直播间</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f7fb;
+      color: #172033;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+    }
+    main {
+      width: min(560px, calc(100vw - 32px));
+      background: #ffffff;
+      border: 1px solid #d9e0ec;
+      border-radius: 8px;
+      box-shadow: 0 18px 48px rgba(23, 32, 51, 0.10);
+      padding: 28px;
+    }
+    h1 {
+      margin: 0 0 24px;
+      font-size: 24px;
+      line-height: 1.25;
+    }
+    label {
+      display: block;
+      margin: 18px 0 8px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    input {
+      box-sizing: border-box;
+      width: 100%;
+      height: 44px;
+      border: 1px solid #c7d1e0;
+      border-radius: 6px;
+      padding: 0 12px;
+      font-size: 16px;
+    }
+    .actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+      flex-wrap: wrap;
+    }
+    button, a.button {
+      border: 0;
+      border-radius: 6px;
+      background: #185abc;
+      color: #ffffff;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 700;
+      min-height: 42px;
+      padding: 0 16px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    a.button {
+      background: #2f3b52;
+    }
+    #status {
+      min-height: 22px;
+      margin-top: 18px;
+      color: #3f4f6b;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>模拟直播间</h1>
+    <label for="matchId">matchId</label>
+    <input id="matchId" name="matchId" value="{{ default_match_id }}" autocomplete="off">
+    <label for="limit">limit</label>
+    <input id="limit" name="limit" type="number" min="1" value="{{ default_limit }}">
+    <div class="actions">
+      <button id="startButton" type="button">启动</button>
+      <a id="roomLink" class="button" href="/room?matchId={{ default_match_id }}">进入直播间</a>
+    </div>
+    <div id="status"></div>
+  </main>
+
+  <script>
+    const matchInput = document.querySelector("#matchId");
+    const limitInput = document.querySelector("#limit");
+    const startButton = document.querySelector("#startButton");
+    const roomLink = document.querySelector("#roomLink");
+    const statusEl = document.querySelector("#status");
+
+    function syncRoomLink() {
+      roomLink.href = `/room?matchId=${encodeURIComponent(matchInput.value.trim())}`;
+    }
+
+    matchInput.addEventListener("input", syncRoomLink);
+
+    startButton.addEventListener("click", async () => {
+      syncRoomLink();
+      statusEl.textContent = "启动中";
+      const params = new URLSearchParams({
+        matchId: matchInput.value.trim(),
+        limit: limitInput.value,
+      });
+      const response = await fetch(`/api/start?${params.toString()}`);
+      const data = await response.json();
+      statusEl.textContent = response.ok ? `已启动 ${data.match_id}` : "启动失败";
+    });
+  </script>
+</body>
+</html>
