@@ -156,12 +156,15 @@ async def test_write_one_fake_message_writes_stream_and_updates_stats(redis_clie
     assert await redis_client.hget(stats_key("match_001"), "sent_total") == "1"
 
 
-async def test_write_one_message_uses_llm_client_when_provided(redis_client) -> None:
-    class FakeLlmClient:
-        async def generate_text(self, messages, max_completion_tokens=64, temperature=0.8) -> str:
-            return "LLM生成的弹幕"
+async def test_write_one_message_uses_llm_agent_when_provided(redis_client) -> None:
+    class FakeAgentResponse:
+        content = "LLM生成的弹幕"
 
-    manager = LiveTaskManager(redis_client, llm_client=FakeLlmClient())
+    class FakeAgent:
+        async def arun(self, input, **kwargs) -> FakeAgentResponse:
+            return FakeAgentResponse()
+
+    manager = LiveTaskManager(redis_client, llm_agent=FakeAgent())
     await manager.start_live("match_001", limit=1, now_ts=1717660800)
 
     message = await manager.write_one_message(

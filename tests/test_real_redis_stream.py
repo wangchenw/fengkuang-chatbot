@@ -21,18 +21,18 @@ from shared.redis_keys import (
 
 pytestmark = pytest.mark.asyncio
 
-REAL_REDIS_URL = os.getenv("REDIS_URL", "redis://101.133.133.237:6379/2")
+REAL_REDIS_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/2")
 
 
 def require_real_redis_tests() -> None:
     if os.getenv("RUN_REAL_REDIS_TESTS") != "1":
-        pytest.skip("真实 Redis 测试默认跳过；设置 RUN_REAL_REDIS_TESTS=1 后执行")
+        pytest.skip("本地 Redis 测试默认跳过；设置 RUN_REAL_REDIS_TESTS=1 后执行")
 
 
 def assert_redis_url_uses_db_2(redis_url: str) -> None:
     parsed = urlparse(redis_url)
     assert parsed.scheme == "redis"
-    assert parsed.hostname == "101.133.133.237"
+    assert parsed.hostname in {"127.0.0.1", "localhost"}
     assert parsed.port == 6379
     assert parsed.path == "/2"
 

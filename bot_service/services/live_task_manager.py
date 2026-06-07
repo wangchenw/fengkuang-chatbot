@@ -35,12 +35,12 @@ class LiveTaskManager:
         redis_client: Any,
         consumer_group: str = "livestream-team",
         stream_maxlen: int = 5000,
-        llm_client: Any | None = None,
+        llm_agent: Any | None = None,
     ) -> None:
         self.redis = redis_client
         self.consumer_group = consumer_group
         self.stream_maxlen = stream_maxlen
-        self.llm_client = llm_client
+        self.llm_agent = llm_agent
 
     async def start_live(
         self,
@@ -132,7 +132,7 @@ class LiveTaskManager:
         sequence: int = 0,
         now_ts: int | None = None,
     ) -> ChatMessage:
-        if self.llm_client is None:
+        if self.llm_agent is None:
             return await self.write_one_fake_message(match_id, sequence=sequence, now_ts=now_ts)
 
         bot = await self._get_bot_for_sequence(match_id, sequence)
@@ -140,7 +140,7 @@ class LiveTaskManager:
             match_id=match_id,
             bot=bot,
             sequence=sequence,
-            llm_client=self.llm_client,
+            llm_agent=self.llm_agent,
             now_ts=now_ts,
         )
 

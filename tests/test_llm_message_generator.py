@@ -3,24 +3,31 @@ from bot_service.services.llm_message_generator import generate_llm_message
 from shared.message_contract import ChatMessage
 
 
-class FakeLlmClient:
-    def __init__(self) -> None:
-        self.messages = None
+class FakeAgentResponse:
+    def __init__(self, content: str) -> None:
+        self.content = content
 
-    async def generate_text(self, messages, max_completion_tokens=64, temperature=0.8) -> str:
-        self.messages = messages
-        return "这波进攻有点意思"
+
+class FakeAgent:
+    def __init__(self) -> None:
+        self.input = ""
+        self.kwargs = {}
+
+    async def arun(self, input, **kwargs) -> FakeAgentResponse:
+        self.input = input
+        self.kwargs = kwargs
+        return FakeAgentResponse("这波进攻有点意思")
 
 
 async def test_generate_llm_message_returns_chat_message() -> None:
     bot = get_personas(1)[0]
-    llm_client = FakeLlmClient()
+    llm_agent = FakeAgent()
 
     message = await generate_llm_message(
         match_id="match_001",
         bot=bot,
         sequence=1,
-        llm_client=llm_client,
+        llm_agent=llm_agent,
         now_ts=1717660800,
     )
 
@@ -32,14 +39,16 @@ async def test_generate_llm_message_returns_chat_message() -> None:
     assert message.match_time == "测试时间"
     assert message.event == "测试事件"
     assert message.ts == 1717660800
-    assert llm_client.messages[0]["role"] == "system"
-    assert "情绪热烈" in llm_client.messages[0]["content"]
+    assert llm_agent.kwargs["stream"] is False
+    assert "match_001" in llm_agent.input
+    assert "发言序号：1" in llm_agent.input
+    assert "情绪热烈" in llm_agent.input
 
 
 async def test_generate_llm_message_strips_quotes_and_whitespace() -> None:
-    class QuotedClient:
-        async def generate_text(self, messages, max_completion_tokens=64, temperature=0.8) -> str:
-            return "  “这场看着挺刺激”  "
+    class QuotedAgent:
+        async def arun(self, input, **kwargs) -> FakeAgentResponse:
+            return FakeAgentResponse("  “这场看着挺刺激”  ")
 
     bot = get_personas(1)[0]
 
@@ -47,7 +56,7 @@ async def test_generate_llm_message_strips_quotes_and_whitespace() -> None:
         match_id="match_001",
         bot=bot,
         sequence=1,
-        llm_client=QuotedClient(),
+        llm_agent=QuotedAgent(),
         now_ts=1717660800,
     )
 

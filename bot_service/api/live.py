@@ -3,7 +3,7 @@ import asyncio
 from fastapi import APIRouter, Depends, Query
 
 from bot_service.config.settings import settings
-from bot_service.integrations.redis_client import mimo_client, redis_client
+from bot_service.integrations.redis_client import mimo_agent, redis_client
 from bot_service.services.live_task_manager import LiveTaskManager
 
 
@@ -12,7 +12,7 @@ _fake_loop_tasks: dict[str, asyncio.Task] = {}
 
 
 def get_live_task_manager() -> LiveTaskManager:
-    return LiveTaskManager(redis_client, llm_client=mimo_client)
+    return LiveTaskManager(redis_client, llm_agent=mimo_agent)
 
 
 def get_message_interval_seconds() -> float:

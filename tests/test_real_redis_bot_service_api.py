@@ -11,12 +11,12 @@ from shared.redis_keys import bots_key, messages_key, state_key, stats_key, stop
 
 pytestmark = pytest.mark.asyncio
 
-REAL_REDIS_URL = os.getenv("REDIS_URL", "redis://101.133.133.237:6379/2")
+REAL_REDIS_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/2")
 
 
 def require_real_redis_tests() -> None:
     if os.getenv("RUN_REAL_REDIS_TESTS") != "1":
-        pytest.skip("真实 Redis 测试默认跳过；设置 RUN_REAL_REDIS_TESTS=1 后执行")
+        pytest.skip("本地 Redis 测试默认跳过；设置 RUN_REAL_REDIS_TESTS=1 后执行")
 
 
 async def cleanup(match_id: str) -> None:

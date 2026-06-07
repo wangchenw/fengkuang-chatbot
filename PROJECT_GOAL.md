@@ -7,7 +7,7 @@
 - `bot_service`：机器人服务，负责创建机器人、生成直播间留言，并写入 Redis。
 - `mock_live_room`：模拟直播间服务，负责测试启动任务、消费 Redis 消息，并在页面展示弹幕效果。
 
-核心目标是先跑通完整闭环，再逐步接入 Agno、小模型和体育数据接口。
+核心目标是先跑通完整闭环，再通过 Agno Agent 接入小模型，最后逐步接入体育数据接口。
 
 ## 核心业务目标
 
@@ -66,7 +66,7 @@ startLive?matchId=123456&limit=20
 - 按 `limit` 创建指定数量机器人。
 - 给机器人分配人设。
 - 构建比赛上下文。
-- 调用 Agno / 小模型生成留言。
+- 通过 Agno Agent 调用小模型生成留言。
 - 将留言写入 Redis Stream。
 - 维护任务状态和统计数据。
 
@@ -101,9 +101,9 @@ startLive?matchId=123456&limit=20
 - 比赛任务状态枚举。
 - 通用消息字段约定。
 
-## 最小闭环
+## 当前实现阶段
 
-第一版不要接 Agno，不要接真实体育数据接口，先跑通这个链路：
+第一阶段已经跑通最小闭环：
 
 ```text
 mock_live_room 调用 startLive
@@ -117,9 +117,25 @@ mock_live_room 从 Redis 读取弹幕
 页面展示弹幕
 ```
 
-这个闭环跑通后，再逐步增强机器人智能。
+当前阶段开始接入 LLM，但接入方式必须保持简单：
+
+- 不自己实现小米 TokenPlan HTTP client。
+- 统一使用 Agno 的 `Agent`。
+- 模型适配使用 Agno 的 OpenAI-compatible 模型能力。
+- 当前 TokenPlan 模型使用 `mimo-v2.5`，不要使用未验证可用的模型名。
+- MiMo V2.5 需要通过 `extra_body={"thinking": {"type": "disabled"}}` 禁用 thinking mode，否则短弹幕场景可能只返回 reasoning 内容，最终弹幕 `content` 为空。
+- 业务层只依赖 `agent.arun(...)`，不关心底层 HTTP 请求。
+- 没有配置 `MIMO_API_KEY` 时，服务退回固定测试弹幕，保证 Redis 闭环仍可运行。
 
 ## Redis 设计方向
+
+当前本地开发环境使用本机 Redis：
+
+```text
+redis://127.0.0.1:6379/2
+```
+
+远端 Redis 暂不作为默认开发依赖，避免公网连接不稳定影响本地开发和测试。
 
 每场比赛使用 `matchId` 隔离 Redis key：
 
@@ -230,6 +246,8 @@ GET /statusLive?matchId=123456
 
 - 每个机器人使用独立人设。
 - 所有机器人共享小模型配置。
+- LLM 接入必须通过 Agno Agent 标准流程。
+- 不在项目内维护自定义模型 HTTP client。
 - 每轮根据比赛上下文和最近消息生成一句自然弹幕。
 
 ### 第六步：接入体育数据接口
