@@ -8,9 +8,9 @@ ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 class Settings(BaseSettings):
     redis_url: str = "redis://127.0.0.1:6379/2"
     message_interval_seconds: float = 8.0  # 默认发言间隔
-    mimo_api_key: str = ""
-    mimo_base_url: str = "https://token-plan-cn.xiaomimimo.com/v1"
-    mimo_model: str = "mimo-v2.5"
+    llm_api_key: str = ""
+    llm_base_url: str = ""
+    llm_model_id: str = ""
 
     nami_live_url: str = "http://115.190.176.164:1777/api/v5/football/match/live"
     nami_user: str = ""

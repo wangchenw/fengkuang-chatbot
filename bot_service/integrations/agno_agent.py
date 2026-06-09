@@ -2,7 +2,7 @@ from agno.agent import Agent
 from agno.models.openai.like import OpenAILike
 
 
-def create_mimo_agent(
+def create_llm_agent(
     api_key: str,
     base_url: str,
     model: str,

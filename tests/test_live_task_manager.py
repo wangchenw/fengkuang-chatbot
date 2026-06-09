@@ -253,7 +253,7 @@ async def test_write_one_message_tracks_llm_calls_and_token_usage(redis_client) 
         now_ts=1717660801,
     )
 
-    stats = await redis_client.hgetall(stats_key("match_001"))
+    stats = decode_hash(await redis_client.hgetall(stats_key("match_001")))
     assert stats["llm_call_total"] == "1"
     assert stats["llm_error_total"] == "0"
     assert stats["token_input"] == "7"
@@ -275,7 +275,7 @@ async def test_write_one_message_tracks_llm_errors(redis_client) -> None:
             now_ts=1717660801,
         )
 
-    stats = await redis_client.hgetall(stats_key("match_001"))
+    stats = decode_hash(await redis_client.hgetall(stats_key("match_001")))
     assert stats["llm_call_total"] == "1"
     assert stats["llm_error_total"] == "1"
     assert await redis_client.xlen(messages_key("match_001")) == 0
