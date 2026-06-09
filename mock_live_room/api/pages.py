@@ -17,7 +17,7 @@ templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent
 
 
 def get_bot_service_url() -> str:
-    return os.getenv("BOT_SERVICE_URL", "http://localhost:8000")
+    return os.getenv("BOT_SERVICE_URL", "http://localhost:7000")
 
 
 def get_redis_client() -> Any:

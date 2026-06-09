@@ -36,6 +36,12 @@ async def page_client(redis_client, monkeypatch):
     app.dependency_overrides.clear()
 
 
+async def test_bot_service_url_defaults_to_local_gateway_port(monkeypatch) -> None:
+    monkeypatch.delenv("BOT_SERVICE_URL", raising=False)
+
+    assert pages.get_bot_service_url() == "http://localhost:7000"
+
+
 async def test_index_page_renders_control_form(page_client) -> None:
     response = await page_client.get("/")
 
