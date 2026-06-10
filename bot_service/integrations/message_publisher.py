@@ -60,6 +60,7 @@ async def build_publisher(settings, redis_client) -> MessagePublisher:
 
     if settings.message_sink in ("redis", "both"):
         publishers.append(RedisMessagePublisher(redis_client))
+        logger.info("Publisher registered: RedisMessagePublisher (message_sink=%s)", settings.message_sink)
 
     if settings.message_sink in ("rabbitmq", "both"):
         rabbitmq_publisher = RabbitMQPublisher(
@@ -72,5 +73,11 @@ async def build_publisher(settings, redis_client) -> MessagePublisher:
         )
         await rabbitmq_publisher.connect()
         publishers.append(rabbitmq_publisher)
+        logger.info("Publisher registered: RabbitMQPublisher (message_sink=%s)", settings.message_sink)
 
+    logger.info(
+        "CompositePublisher built with %d publisher(s): %s",
+        len(publishers),
+        [type(p).__name__ for p in publishers],
+    )
     return CompositePublisher(publishers)

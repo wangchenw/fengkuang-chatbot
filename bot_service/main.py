@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -8,6 +9,11 @@ from bot_service.config.settings import settings
 from bot_service.integrations.nami_client import NamiLiveClient
 from bot_service.integrations.redis_client import redis_client
 from bot_service.services.nami_live_poller import NamiLivePoller
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
 
 
 @asynccontextmanager
