@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     rabbitmq_routing_key_template: str = "match.{match_id}"
     rabbitmq_binding_key: str = "match.#"
     rabbitmq_message_ttl_ms: int = 3600000
+    # 测试用：true 时走默认 exchange，routing_key=队列名，与用户 Java 直投方式一致
+    rabbitmq_use_default_exchange: bool = False
 
 
     model_config = SettingsConfigDict(

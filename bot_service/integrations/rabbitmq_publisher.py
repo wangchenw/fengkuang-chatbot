@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 class RabbitMQPublisher:
-    """把弹幕发布到我方自有的 RabbitMQ 拓扑(topic exchange + 共享 queue)。"""
+    """把弹幕发布到 RabbitMQ。支持 topic exchange 或默认 exchange 直投队列。"""
 
     def __init__(
         self,
@@ -18,6 +18,7 @@ class RabbitMQPublisher:
         routing_key_template: str,
         binding_key: str,
         message_ttl_ms: int,
+        use_default_exchange: bool = False,
     ) -> None:
         self._url = url
         self._exchange_name = exchange_name
@@ -25,17 +26,22 @@ class RabbitMQPublisher:
         self._routing_key_template = routing_key_template
         self._binding_key = binding_key
         self._message_ttl_ms = message_ttl_ms
+        self._use_default_exchange = use_default_exchange
         self._connection: aio_pika.abc.AbstractRobustConnection | None = None
         self._channel: aio_pika.abc.AbstractRobustChannel | None = None
         self._exchange: aio_pika.abc.AbstractExchange | None = None
 
+    def _exchange_label(self) -> str:
+        return "(default)" if self._use_default_exchange else self._exchange_name
+
     async def connect(self) -> None:
         logger.info(
-            "RabbitMQ connecting url=%s exchange=%s queue=%s binding=%s ttl_ms=%s",
+            "RabbitMQ connecting url=%s mode=%s exchange=%s queue=%s binding=%s ttl_ms=%s",
             self._url,
-            self._exchange_name,
+            "default" if self._use_default_exchange else "topic",
+            self._exchange_label(),
             self._queue_name,
-            self._binding_key,
+            self._binding_key if not self._use_default_exchange else "N/A",
             self._message_ttl_ms,
         )
         # connect_robust 自带断线自动重连
@@ -43,20 +49,30 @@ class RabbitMQPublisher:
         # publisher_confirms=True 开启发布确认，保证 broker 真正收到
         self._channel = await self._connection.channel(publisher_confirms=True)
 
-        # 我方拥有拓扑：声明 exchange + queue + 绑定，全部 durable
-        self._exchange = await self._channel.declare_exchange(
-            self._exchange_name,
-            aio_pika.ExchangeType.TOPIC,
-            durable=True,
-        )
         queue = await self._channel.declare_queue(
             self._queue_name,
             durable=True,
             arguments={"x-message-ttl": self._message_ttl_ms},
         )
+
+        if self._use_default_exchange:
+            self._exchange = self._channel.default_exchange
+            logger.info(
+                "RabbitMQ connected OK mode=default queue=%s routing_key=%s",
+                self._queue_name,
+                self._queue_name,
+            )
+            return
+
+        # topic 模式：声明 exchange + 绑定到 queue
+        self._exchange = await self._channel.declare_exchange(
+            self._exchange_name,
+            aio_pika.ExchangeType.TOPIC,
+            durable=True,
+        )
         await queue.bind(self._exchange, routing_key=self._binding_key)
         logger.info(
-            "RabbitMQ connected OK exchange=%s queue=%s binding=%s",
+            "RabbitMQ connected OK mode=topic exchange=%s queue=%s binding=%s",
             self._exchange_name,
             self._queue_name,
             self._binding_key,
@@ -66,12 +82,16 @@ class RabbitMQPublisher:
         if self._exchange is None:
             raise RuntimeError("RabbitMQPublisher 未连接，请先调用 connect()")
 
-        routing_key = self._routing_key_template.format(match_id=match_id)
+        if self._use_default_exchange:
+            routing_key = self._queue_name
+        else:
+            routing_key = self._routing_key_template.format(match_id=match_id)
+
         body = message.to_json_bytes()
         logger.info(
             "RabbitMQ publish start exchange=%s queue=%s routing_key=%s "
             "match_id=%s bot_id=%s bot_name=%s content=%s",
-            self._exchange_name,
+            self._exchange_label(),
             self._queue_name,
             routing_key,
             message.match_id,
@@ -89,7 +109,7 @@ class RabbitMQPublisher:
         )
         logger.info(
             "RabbitMQ publish OK exchange=%s routing_key=%s body_size=%s",
-            self._exchange_name,
+            self._exchange_label(),
             routing_key,
             len(body),
         )

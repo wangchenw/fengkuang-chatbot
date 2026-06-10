@@ -70,6 +70,7 @@ async def build_publisher(settings, redis_client) -> MessagePublisher:
             routing_key_template=settings.rabbitmq_routing_key_template,
             binding_key=settings.rabbitmq_binding_key,
             message_ttl_ms=settings.rabbitmq_message_ttl_ms,
+            use_default_exchange=settings.rabbitmq_use_default_exchange,
         )
         await rabbitmq_publisher.connect()
         publishers.append(rabbitmq_publisher)
