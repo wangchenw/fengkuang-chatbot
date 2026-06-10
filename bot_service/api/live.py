@@ -1,6 +1,6 @@
 import asyncio
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 
 from bot_service.config.settings import settings
 from bot_service.integrations.redis_client import llm_agent, redis_client
@@ -11,12 +11,13 @@ router = APIRouter()
 _fake_loop_tasks: dict[str, asyncio.Task] = {}
 
 
-def get_live_task_manager() -> LiveTaskManager:
+def get_live_task_manager(request: Request) -> LiveTaskManager:
     return LiveTaskManager(
         redis_client,
         llm_agent=llm_agent,
         match_ttl_seconds=settings.match_redis_ttl_seconds,
         max_runtime_seconds=settings.max_match_runtime_seconds,
+        publisher=request.app.state.publisher,
     )
 
 

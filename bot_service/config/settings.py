@@ -21,6 +21,14 @@ class Settings(BaseSettings):
     max_match_runtime_seconds: int = 14400  #避免一直持续生成弹幕，最多四个小时，假设上游开启了，但是没有关闭
 
 
+    message_sink: str = "both"
+    rabbitmq_url: str = ""
+    rabbitmq_exchange: str = "livestream.danmaku"
+    rabbitmq_queue: str = "livestream.danmaku.queue"
+    rabbitmq_routing_key_template: str = "match.{match_id}"
+    rabbitmq_binding_key: str = "match.#"
+    rabbitmq_message_ttl_ms: int = 3600000
+
 
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,

@@ -6,6 +6,8 @@ from typing import Any
 
 from redis.exceptions import ResponseError
 
+from bot_service.integrations.message_publisher import MessagePublisher, RedisMessagePublisher
+
 from bot_service.personas.pool import get_personas
 from bot_service.services.fake_message_generator import generate_fake_message
 from bot_service.services.llm_message_generator import generate_llm_message_with_usage
@@ -51,6 +53,8 @@ class LiveTaskManager:
         llm_agent: Any | None = None,
         match_ttl_seconds: int = 86400,
         max_runtime_seconds: int = 14400,
+        publisher: MessagePublisher | None = None,
+        
     ) -> None:
         self.redis = redis_client
         self.consumer_group = consumer_group
@@ -58,6 +62,7 @@ class LiveTaskManager:
         self.llm_agent = llm_agent
         self.match_ttl_seconds = match_ttl_seconds
         self.max_runtime_seconds = max_runtime_seconds
+        self.publisher = publisher or RedisMessagePublisher(redis_client, stream_maxlen)
 
     async def start_live(
         self,
@@ -146,12 +151,8 @@ class LiveTaskManager:
         bot = await self._get_bot_for_sequence(match_id, sequence)
         message = generate_fake_message(match_id, bot, sequence, now_ts=now_ts)
 
-        await self.redis.xadd(
-            messages_key(match_id),
-            message.to_redis_fields(),
-            maxlen=self.stream_maxlen,
-            approximate=True,
-        )
+        await self.publisher.publish(match_id, message)
+        
         await self.redis.hincrby(stats_key(match_id), "sent_total", 1)
         await self._refresh_match_ttl(match_id)
 
@@ -220,12 +221,8 @@ class LiveTaskManager:
             len(message.content),
         )
 
-        await self.redis.xadd(
-            messages_key(match_id),
-            message.to_redis_fields(),
-            maxlen=self.stream_maxlen,
-            approximate=True,
-        )
+        await self.publisher.publish(match_id, message)
+
         await self.redis.hincrby(stats_key(match_id), "sent_total", 1)
         await self._refresh_match_ttl(match_id)
 
