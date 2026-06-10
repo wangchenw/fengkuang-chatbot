@@ -1,7 +1,10 @@
-from pydantic import BaseModel
+from uuid import uuid4
+
+from pydantic import BaseModel, Field
 
 
 class ChatMessage(BaseModel):
+    message_id: str = Field(default_factory=lambda: f"msg_{uuid4().hex}")
     match_id: str
     bot_id: str
     bot_name: str
@@ -12,6 +15,7 @@ class ChatMessage(BaseModel):
 
     def to_redis_fields(self) -> dict[str, str]:
         return {
+            "message_id": self.message_id,
             "match_id": self.match_id,
             "bot_id": self.bot_id,
             "bot_name": self.bot_name,

@@ -185,6 +185,7 @@ live:4546708:messages
 每条弹幕字段：
 
 ```text
+message_id：弹幕业务唯一 ID，Redis 和 RabbitMQ 中保持一致
 match_id：比赛 ID
 bot_id：机器人 ID
 bot_name：机器人名称
@@ -197,6 +198,7 @@ ts：生成时间戳，秒级
 消费端主要使用：
 
 ```text
+message_id
 bot_name
 content
 ts

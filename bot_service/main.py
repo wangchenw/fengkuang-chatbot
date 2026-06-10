@@ -11,7 +11,8 @@ from bot_service.integrations.redis_client import redis_client
 from bot_service.services.nami_live_poller import NamiLivePoller
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.WARNING,
+    # level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 
